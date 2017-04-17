@@ -22,7 +22,7 @@ dependencies:
 
     # Install Terminus
     - curl -O https://raw.githubusercontent.com/pantheon-systems/terminus-installer/master/builds/installer.phar && php installer.phar install
-    - sudo chmod +x /home/ubuntu/Florida-Conference/vendor/bin/terminus
+    - echo "alias terminus='/home/ubuntu/Florida-Conference/vendor/bin/terminus'" >> ~/.bashrc && source ~/.bashrc
 
   override:
     - ./bin/drupal-auto-update.sh
