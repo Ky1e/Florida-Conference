@@ -75,7 +75,7 @@ else
 
     # ping the multidev environment to wake it from sleep
     echo -e "\nPinging the ${MULTIDEV} multidev environment to wake it from sleep..."
-    curl -I http://update-drupal-florida-conference.pantheonsite.io
+    curl -I http://update-dr-florida-conference.pantheonsite.io
 
     # backstop visual regression
     echo -e "\nRunning BackstopJS tests..."
@@ -122,8 +122,8 @@ else
         echo -e "\nDeploying the updates from test to live..."
         terminus site deploy --env=live --cc --note="Auto deploy of Drupal updates (core, plugin, themes)"
 
-        echo -e "\nVisual regression tests passed! Drupal updates deployed to live..."
-        SLACK_MESSAGE="scalewp.io Circle CI update check #${CIRCLE_BUILD_NUM} by ${CIRCLE_PROJECT_USERNAME} Visual regression tests passed! Drupal updates deployed to <https://dashboard.pantheon.io/sites/${SITE_UUID}#live/deploys|the live environment>."
+        echo -e "\nVisual regression tests passed! WordPress updates deployed to live..."
+        SLACK_MESSAGE="I've updated ${CIRCLE_PROJECT_REPONAME} on build #${CIRCLE_BUILD_NUM} and the visual regression tests passed! WordPress updates deployed to <https://dashboard.pantheon.io/sites/${SITE_UUID}#live/deploys|the live environment>."
         echo -e "\nSending a message to the ${SLACK_CHANNEL} Slack channel"
         curl -X POST --data "payload={\"channel\": \"${SLACK_CHANNEL}\", \"username\": \"${SLACK_USERNAME}\", \"text\": \"${SLACK_MESSAGE}\"}" $SLACK_HOOK_URL
     fi

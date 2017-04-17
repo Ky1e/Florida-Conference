@@ -25,8 +25,15 @@ dependencies:
     - sudo chmod +x /usr/local/bin/terminus
 
   override:
+    - ./bin/build.sh
     - ./bin/drupal-auto-update.sh
 
 test:
   override:
     - ls
+
+deployment:
+  pantheon:
+    branch: /.*/
+    commands:
+      - ./bin/deploy_to_pantheon.sh
