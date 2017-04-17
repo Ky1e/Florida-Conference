@@ -11,11 +11,6 @@ txtcyn=$(tput setaf 6) # Cyan
 txtwht=$(tput setaf 7) # White
 txtrst=$(tput sgr0) # Text reset.
 
-# Install Terminus
-echo -e "\n${txtylw}Installing Terminus ${txtrst}"
-sudo curl https://github.com/pantheon-systems/terminus-installer/master/builds/installer.phar -L -o /usr/local/bin/terminus
-sudo chmod +x /usr/local/bin/terminus
-
 COMMIT_MESSAGE="$(git show --name-only --decorate)"
 PANTHEON_ENV="dev"
 
@@ -31,11 +26,21 @@ fi
 
 cd pantheon
 
+# If the orphaned wp-content exists
+if [ -d "$HOME/pantheon/wp-content" ]
+then
+	# Remove it
+	echo -e "\n${txtylw}Removing $HOME/pantheon/wp-content ${txtrst}"
+	rm -rf $HOME/pantheon/wp-content
+fi
+
 git fetch
 
 # Log into terminus.
 echo -e "\n${txtylw}Logging into Terminus ${txtrst}"
-terminus auth:login --machine-token=${TERMINUS_MACHINE_TOKEN}
+terminus auth:login --machine-token=$PANTHEON_MACHINE_TOKEN
+
+SLACK_MESSAGE="Circle CI build ${CIRCLE_BUILD_NUM} by ${CIRCLE_PROJECT_USERNAME} was successful and has been deployed to Pantheon on <https://dashboard.pantheon.io/sites/${PANTHEON_SITE_UUID}#dev/code|the dev environment>! \nTo deploy to test run "'`terminus env:deploy '"${PANTHEON_SITE_UUID}"'.test`'" or merge from <https://dashboard.pantheon.io/sites/${PANTHEON_SITE_UUID}#test/deploys|the site dashboard>."
 
 # Check if we are NOT on the master branch
 if [ $CIRCLE_BRANCH != "master" ]
@@ -64,19 +69,27 @@ then
 	echo -e "\n${txtylw}Checking for the multidev environment ${normalize_branch} via Terminus ${txtrst}"
 
 	# Get a list of all environments
-	PANTHEON_ENVS="$(terminus site environments --site=$PANTHEON_SITE_UUID --format=bash)"
-	terminus env:list $PANTHEON_SITE_UUID
+	PANTHEON_ENVS="$(terminus multidev:list $PANTHEON_SITE_UUID --format=list --field=Name)"
+	terminus multidev:list $PANTHEON_SITE_UUID --fields=Name
+
+	MULTIDEV_FOUND=0
+
+	while read -r line; do
+    	if [[ "${line}" == "${normalize_branch}" ]]
+    	then
+    		MULTIDEV_FOUND=1
+    	fi
+	done <<< "$PANTHEON_ENVS"
 
 	# If the multidev for this branch is found
-	if [[ ${PANTHEON_ENVS} == *"${normalize_branch}"* ]]
+	if [[ "$MULTIDEV_FOUND" -eq 1 ]]
 	then
 		# Send a message
 		echo -e "\n${txtylw}Multidev found! ${txtrst}"
 	else
 		# otherwise, create the multidev branch
 		echo -e "\n${txtylw}Multidev not found, creating the multidev branch ${normalize_branch} via Terminus ${txtrst}"
-		echo -e "Running terminus site create-env --site=$PANTHEON_SITE_UUID --to-env=$normalize_branch --from-env=dev"
-		terminus site create-env --site=$PANTHEON_SITE_UUID --to-env=$normalize_branch --from-env=dev
+		terminus multidev:create $PANTHEON_SITE_UUID.dev $normalize_branch
 		git fetch
 	fi
 
@@ -91,13 +104,41 @@ then
 		git checkout -b $normalize_branch
   	fi
 
+	SLACK_MESSAGE="Circle CI build ${CIRCLE_BUILD_NUM} by ${CIRCLE_PROJECT_USERNAME} was successful and has been deployed to Pantheon on <https://dashboard.pantheon.io/sites/${PANTHEON_SITE_UUID}#${normalize_branch}/code|the ${normalize_branch} environment>! \nTo merge to dev run "'`terminus multidev:merge-to-dev '"${PANTHEON_SITE_UUID}"'.'"${normalize_branch}"'`'" or merge from <https://dashboard.pantheon.io/sites/${PANTHEON_SITE_UUID}#dev/merge|the site dashboard>."
 fi
 
 #echo -e "\n${txtylw}Creating a backup of the ${PANTHEON_ENV} environment for site ${PANTHEON_SITE_UUID} ${txtrst}"
 #terminus site backups create --element=all --site=$PANTHEON_SITE_UUID --env=$PANTHEON_ENV
 
-echo -e "\n${txtylw}Rsyncing $BUILD_DIR ${txtrst}"
-rsync -a $BUILD_DIR/* ./
+# Delete the web and vendor subdirectories if they exist
+if [ -d "$HOME/pantheon/web" ]
+then
+	# Remove it
+	echo -e "\n${txtylw}Removing $HOME/pantheon/web ${txtrst}"
+	rm -rf $HOME/pantheon/web
+fi
+if [ -d "$HOME/pantheon/vendor" ]
+then
+	# Remove it
+	echo -e "\n${txtylw}Removing $HOME/pantheon/vendor ${txtrst}"
+	rm -rf $HOME/pantheon/vendor
+fi
+
+mkdir -p web
+mkdir -p vendor
+
+echo -e "\n${txtylw}Rsyncing $BUILD_DIR/web ${txtrst}"
+rsync -a $BUILD_DIR/web/* ./web/
+
+echo -e "\n${txtylw}Copying $BUILD_DIR/pantheon.yml ${txtrst}"
+cp $BUILD_DIR/pantheon.yml .
+
+
+echo -e "\n${txtylw}Copying $BUILD_DIR/wp-cli.yml ${txtrst}"
+cp $BUILD_DIR/wp-cli.yml .
+
+echo -e "\n${txtylw}Rsyncing $BUILD_DIR/vendor ${txtrst}"
+rsync -a $BUILD_DIR/vendor/* ./vendor/
 
 # Some plugins have .svn directories, nuke 'em
 echo -e "\n${txtylw}Removing all '.svn' directories${txtrst}"
@@ -107,16 +148,12 @@ find . -name '.svn' -type d -exec rm -rf {} \;
 echo -e "\n${txtylw}Removing all 'node_modules' directories${txtrst}"
 find . -name 'node_modules' -type d -exec rm -rf {} \;
 
-# Remove .sass-cache directories
-echo -e "\n${txtylw}Removing all '.sass-cache' directories${txtrst}"
-find . -name '.sass-cache' -type d -exec rm -rf {} \;
-
 # Remove wp-content/uploads if it exists
 # Checking in Pantheon's files symlink is bad new
-if [ -d "$HOME/pantheon/wp-content/uploads" ]
+if [ -d "$HOME/pantheon/web/wp-content/uploads" ]
 then
-	echo -e "\n${txtylw}Removing 'wp-content/uploads' symlink${txtrst}"
-	rm wp-content/uploads
+	echo -e "\n${txtylw}Removing 'web/wp-content/uploads' symlink${txtrst}"
+	rm web/wp-content/uploads
 fi
 
 echo -e "\n${txtylw}Forcibly adding all files and committing${txtrst}"
@@ -132,3 +169,7 @@ else
 	echo -e "\n${txtgrn}Pushing the master branch to Pantheon ${txtrst}"
 	git push -u origin master --force
 fi
+
+#Send a message to Slack
+echo -e "\n${txtgrn}Sending a message to the ${SLACK_CHANNEL} Slack channel ${txtrst}"
+curl -X POST --data "payload={\"channel\": \"${SLACK_CHANNEL}\", \"username\": \"${SLACK_USERNAME}\", \"text\": \"${SLACK_MESSAGE}\"}" $SLACK_HOOK_URL
