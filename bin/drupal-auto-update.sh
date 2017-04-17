@@ -1,24 +1,24 @@
 #!/bin/bash
 
-MULTIDEV="update-drupal"
+MULTIDEV="update-dr"
 
 UPDATES_APPLIED=false
 
 # login to Terminus
 echo -e "\nLogging into Terminus..."
-terminus auth login --machine-token=${TERMINUS_MACHINE_TOKEN}
+terminus auth:login --machine-token=${TERMINUS_MACHINE_TOKEN}
 
 # delete the multidev environment
 echo -e "\nDeleting the ${MULTIDEV} multidev environment..."
-terminus site delete-env --remove-branch --yes
+terminus multidev:delete <site>.${MULTIDEV} --delete-branch --yes
 
 # recreate the multidev environment
 echo -e "\nRe-creating the ${MULTIDEV} multidev environment..."
-terminus site create-env --from-env=live --to-env=${MULTIDEV}
+terminus multidev:create --from-env=live --to-env=${MULTIDEV}
 
 # making sure the multidev is in git mode
 echo -e "\nSetting the ${MULTIDEV} multidev to git mode"
-terminus site set-connection-mode --mode=git
+terminus connection:set git
 
 # check for upstream updates
 echo -e "\nChecking for upstream updates on the ${MULTIDEV} multidev..."
