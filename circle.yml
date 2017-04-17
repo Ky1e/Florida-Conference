@@ -21,8 +21,8 @@ dependencies:
     - npm install -g gulp
 
     # Install Terminus
-    - curl -O https://raw.githubusercontent.com/pantheon-systems/terminus-installer/master/builds/installer.phar && php installer.phar install
-    - echo "alias terminus='/home/ubuntu/Florida-Conference/vendor/bin/terminus'" >> ~/.bashrc && source ~/.bashrc
+    - sudo curl https://github.com/pantheon-systems/terminus-installer/master/builds/installer.phar -L -o /usr/local/bin/terminus
+    - sudo chmod +x /usr/local/bin/terminus
 
   override:
     - ./bin/drupal-auto-update.sh
