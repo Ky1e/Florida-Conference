@@ -25,7 +25,6 @@ dependencies:
     - sudo chmod +x /usr/local/bin/terminus
 
   override:
-    - ./bin/build.sh
     - ./bin/drupal-auto-update.sh
 
 test:
